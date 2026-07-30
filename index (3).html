@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Slab Yield Planner</title>
+<style>
+  :root{
+    --bg: #1b1c1e;
+    --panel: #232527;
+    --panel-2: #2a2d30;
+    --line: #3a3d40;
+    --ink: #ece8e1;
+    --ink-dim: #9a9691;
+    --brass: #c08552;
+    --brass-dim: #8a6440;
+    --good: #7fae86;
+    --warn: #d9995c;
+    --slab: #d8d3c8;
+    --slab-vein: #c3bcae;
+    --cut: #e2503a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    display:flex;
+    min-height:100vh;
+  }
+  .mono{font-family: "SF Mono", "Menlo", "Consolas", monospace;}
+
+  /* ---- left control column ---- */
+  #controls{
+    width: 340px;
+    min-width:340px;
+    background:var(--panel);
+    border-right:1px solid var(--line);
+    padding:22px 20px 40px;
+    overflow-y:auto;
+    height:100vh;
+  }
+  .eyebrow{
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--brass);
+    font-weight:600;
+    margin-bottom:4px;
+  }
+  h1{
+    font-size:19px;
+    margin:0 0 2px;
+    font-weight:650;
+    letter-spacing:-0.01em;
+  }
+  .sub{font-size:12.5px;color:var(--ink-dim);margin:0 0 22px;line-height:1.5;}
+
+  .field-group{margin-bottom:18px;}
+  .field-row{display:flex;gap:10px;margin-bottom:10px;}
+  label{
+    display:block;
+    font-size:11px;
+    color:var(--ink-dim);
+    margin-bottom:5px;
+    letter-spacing:.02em;
+  }
+  input[type=text], input[type=number]{
+    width:100%;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    color:var(--ink);
+    padding:8px 9px;
+    border-radius:6px;
+    font-size:13px;
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  }
+  input[type=text]{font-family:inherit;}
+  input:focus{outline:none;border-color:var(--brass);}
+  .flex1{flex:1;min-width:0;}
+
+  h2.section{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.1em;
+    color:var(--ink-dim);
+    border-top:1px solid var(--line);
+    margin:22px 0 14px;
+    padding-top:18px;
+  }
+
+  #pieces{margin-bottom:10px;}
+  .piece-row{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:10px 10px 8px;
+    margin-bottom:8px;
+    position:relative;
+  }
+  .piece-row .field-row{margin-bottom:8px;}
+  .piece-row .field-row:last-child{margin-bottom:0;}
+  .remove-btn{
+    position:absolute;
+    top:6px;
+    right:8px;
+    background:none;
+    border:none;
+    color:var(--ink-dim);
+    cursor:pointer;
+    font-size:15px;
+    line-height:1;
+    padding:2px 4px;
+  }
+  .remove-btn:hover{color:var(--cut);}
+  .qty-label{width:52px;flex:none;}
+
+  button.add-piece{
+    width:100%;
+    background:transparent;
+    border:1px dashed var(--line);
+    color:var(--ink-dim);
+    padding:9px;
+    border-radius:7px;
+    cursor:pointer;
+    font-size:12.5px;
+    margin-bottom:4px;
+  }
+  button.add-piece:hover{border-color:var(--brass);color:var(--brass);}
+
+  .checkbox-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:12.5px;
+    color:var(--ink-dim);
+    margin-top:14px;
+  }
+  .checkbox-row input{width:auto;}
+
+  button.calc{
+    width:100%;
+    background:var(--brass);
+    border:none;
+    color:#1b1c1e;
+    font-weight:700;
+    padding:12px;
+    border-radius:7px;
+    cursor:pointer;
+    font-size:13.5px;
+    letter-spacing:.01em;
+    margin-top:20px;
+  }
+  button.calc:hover{background:#cf9563;}
+
+  /* ---- right results column ---- */
+  #results{
+    flex:1;
+    padding:26px 34px 60px;
+    overflow-y:auto;
+    height:100vh;
+  }
+  #jobHeader{
+    margin-bottom:16px;
+  }
+  #jobHeader .job-name{
+    font-size:20px;
+    font-weight:700;
+    letter-spacing:-0.01em;
+  }
+  #jobHeader .job-date{
+    font-size:12.5px;
+    color:var(--ink-dim);
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    margin-top:2px;
+  }
+  #summary{
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+    margin-bottom:20px;
+  }
+  .stat{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:14px 20px;
+    min-width:120px;
+  }
+  .stat .num{
+    font-size:26px;
+    font-weight:700;
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+  }
+  .stat .lbl{font-size:11px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
+  .stat.accent .num{color:var(--brass);}
+  .stat.good .num{color:var(--good);}
+  .stat.warn .num{color:var(--warn);}
+
+  .tray-section{margin-bottom:30px;}
+  .tray-section h2.section{margin-top:0;padding-top:0;border-top:none;}
+  #unassignedTray.tray-area{
+    min-height:60px;
+    border:1px dashed var(--line);
+    border-radius:10px;
+    padding:12px;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:flex-start;
+    gap:10px;
+    background:var(--panel);
+  }
+  .tray-empty{
+    color:var(--ink-dim);
+    font-size:12.5px;
+    margin:auto;
+    padding:8px;
+  }
+  .tray-card{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:8px 12px;
+    cursor:grab;
+    min-width:110px;
+    touch-action:none;
+    user-select:none;
+  }
+  .tray-card:active{cursor:grabbing;}
+  .tray-card-name{font-size:12px;font-weight:600;}
+  .tray-card-dims{font-size:11px;color:var(--ink-dim);font-family:"SF Mono","Menlo","Consolas",monospace;margin-top:2px;}
+
+  .slab-block{margin-bottom:38px;}
+  .slab-title{
+    font-size:13px;
+    font-weight:650;
+    margin-bottom:10px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .slab-title .yield-tag{
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size:11.5px;
+    color:var(--ink-dim);
+    background:var(--panel-2);
+    padding:2px 8px;
+    border-radius:20px;
+    border:1px solid var(--line);
+  }
+  .photo-upload-btn{
+    margin-left:auto;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    color:var(--ink-dim);
+    font-size:11px;
+    font-weight:500;
+    padding:5px 12px;
+    border-radius:20px;
+    cursor:pointer;
+  }
+  .photo-upload-btn:hover{border-color:var(--brass);color:var(--brass);}
+  .remove-photo-btn{
+    background:none;
+    border:none;
+    color:var(--ink-dim);
+    cursor:pointer;
+    font-size:13px;
+    padding:2px 4px;
+  }
+  .remove-photo-btn:hover{color:var(--cut);}
+  svg.slab-svg{
+    background:var(--slab);
+    border-radius:4px;
+    display:block;
+  }
+  .piece-group{touch-action:none;}
+  .piece-group text{user-select:none;pointer-events:none;}
+
+  .drag-ghost{
+    position:fixed;
+    z-index:9999;
+    background:var(--brass);
+    color:#1b1c1e;
+    border-radius:6px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:11px;
+    font-weight:700;
+    padding:4px;
+    pointer-events:none;
+    box-shadow:0 6px 18px rgba(0,0,0,0.35);
+    text-align:center;
+    overflow:hidden;
+  }
+
+  .empty-note{
+    color:var(--ink-dim);
+    font-size:13px;
+    margin-top:60px;
+    text-align:center;
+    line-height:1.7;
+  }
+  .empty-note .eyebrow{display:block;margin-bottom:8px;}
+
+  #toolbar{
+    display:flex;
+    justify-content:flex-end;
+    margin-bottom:14px;
+  }
+  button.print-btn{
+    background:var(--panel);
+    border:1px solid var(--line);
+    color:var(--ink);
+    padding:8px 16px;
+    border-radius:7px;
+    cursor:pointer;
+    font-size:12.5px;
+  }
+  button.print-btn:hover{border-color:var(--brass);color:var(--brass);}
+
+  .drag-hint{
+    font-size:11.5px;
+    color:var(--ink-dim);
+    margin:-4px 0 18px;
+  }
+
+  @media print{
+    body{background:#fff;color:#000;}
+    #controls, #toolbar{display:none !important;}
+    #results{padding:0;overflow:visible;height:auto;flex:none;width:100%;}
+    .stat{background:#f4f2ee;border:1px solid #ccc;}
+    .stat .lbl, #jobHeader .job-date{color:#555;}
+    .slab-block{page-break-after:always;margin-bottom:16px;}
+    .slab-block:last-child{page-break-after:auto;}
+    svg.slab-svg{background:#fff;}
+    .drag-hint{display:none;}
+    .photo-upload-btn, .remove-photo-btn{display:none !important;}
+    .tray-section{display:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<div id="controls">
+  <div class="eyebrow">Metro / Mele — Fabrication</div>
+  <h1>Slab Yield Planner</h1>
+  <p class="sub">Enter your slab size, list every piece off the takeoff, and get a cut layout with slab count and yield.</p>
+
+  <div class="field-group">
+    <h2 class="section" style="margin-top:0;padding-top:0;border-top:none;">Job</h2>
+    <div class="field-row">
+      <div class="flex1">
+        <label>Job name</label>
+        <input type="text" id="jobName" placeholder="e.g. Snow Residence">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="flex1">
+        <label>Date</label>
+        <input type="date" id="jobDate">
+      </div>
+    </div>
+  </div>
+
+  <div class="field-group">
+    <h2 class="section">Slab</h2>
+    <div class="field-row">
+      <div class="flex1">
+        <label>Length (in)</label>
+        <input type="number" id="slabLen" value="126" step="0.25">
+      </div>
+      <div class="flex1">
+        <label>Width (in)</label>
+        <input type="number" id="slabWid" value="63" step="0.25">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="flex1">
+        <label>Edge trim (in)</label>
+        <input type="number" id="edgeTrim" value="1" step="0.125">
+      </div>
+      <div class="flex1">
+        <label>Saw kerf gap (in)</label>
+        <input type="number" id="kerf" value="0.25" step="0.0625">
+      </div>
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="allowRotate" checked>
+      <label style="margin:0;" for="allowRotate">Allow pieces to rotate 90°</label>
+    </div>
+  </div>
+
+  <h2 class="section">Pieces</h2>
+  <div id="pieces"></div>
+  <button class="add-piece" onclick="addPiece()">+ Add piece</button>
+
+  <button class="calc" onclick="runCalc()">Calculate slabs &amp; nesting</button>
+</div>
+
+<div id="results">
+  <div id="toolbar"><button class="print-btn" onclick="window.print()">🖨 Print</button></div>
+  <div id="jobHeader"></div>
+  <div class="drag-hint">Drag any piece onto another slab, or down into "Unplaced pieces" to pull it off entirely. Upload a photo of the actual slab to see veining under the pieces.</div>
+  <div id="summary"></div>
+  <div class="tray-section">
+    <h2 class="section">Unplaced pieces</h2>
+    <div id="unassignedTray" class="tray-area"></div>
+  </div>
+  <div id="slabs"></div>
+</div>
+
+<script>
+let pieceIdCounter = 0;
+let slabPhotos = {};        // slabIndex -> data URL, persists across recalculations
+let allPieces = [];         // flat list: {name, qtyLabel, w, h, x, y, slabIndex} (slabIndex null = unassigned)
+let numSlabsRendered = 0;
+let currentSlabDims = null; // {slabLen, slabWid, edgeTrim, scale, usableW, usableH}
+
+function addPiece(name, len, wid, qty){
+  pieceIdCounter++;
+  const id = 'p'+pieceIdCounter;
+  const div = document.createElement('div');
+  div.className = 'piece-row';
+  div.id = id;
+  div.innerHTML = `
+    <button class="remove-btn" onclick="document.getElementById('${id}').remove()">×</button>
+    <div class="field-row">
+      <div class="flex1">
+        <label>Name</label>
+        <input type="text" class="p-name" value="${name || ''}" placeholder="e.g. Island counter">
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="flex1">
+        <label>Length (in)</label>
+        <input type="number" class="p-len" value="${len ?? ''}" step="0.25">
+      </div>
+      <div class="flex1">
+        <label>Width (in)</label>
+        <input type="number" class="p-wid" value="${wid ?? ''}" step="0.25">
+      </div>
+      <div class="qty-label">
+        <label>Qty</label>
+        <input type="number" class="p-qty" value="${qty ?? 1}" min="1" step="1">
+      </div>
+    </div>
+  `;
+  document.getElementById('pieces').appendChild(div);
+}
+
+// default job date to today
+(function(){
+  const d = new Date();
+  const iso = d.toISOString().slice(0,10);
+  document.getElementById('jobDate').value = iso;
+})();
+
+// seed with a few typical rows
+addPiece('Perimeter counter', 96, 25.5, 1);
+addPiece('Island counter', 84, 42, 1);
+addPiece('Backsplash', 96, 4, 1);
+
+function readPieces(){
+  const rows = document.querySelectorAll('.piece-row');
+  const pieces = [];
+  rows.forEach(row=>{
+    const name = row.querySelector('.p-name').value.trim() || 'Piece';
+    const len = parseFloat(row.querySelector('.p-len').value);
+    const wid = parseFloat(row.querySelector('.p-wid').value);
+    const qty = parseInt(row.querySelector('.p-qty').value) || 1;
+    if(!isNaN(len) && !isNaN(wid) && len>0 && wid>0){
+      for(let i=0;i<qty;i++){
+        pieces.push({name, w: len, h: wid, qtyLabel: qty>1 ? ` (${i+1}/${qty})` : ''});
+      }
+    }
+  });
+  return pieces;
+}
+
+// Shelf-based best-fit-decreasing packer, multi-slab, optional rotation.
+function packSlabs(pieces, slabW, slabH, gap, rotate){
+  const items = pieces.slice().sort((a,b)=>{
+    const maxA = Math.max(a.w,a.h), maxB = Math.max(b.w,b.h);
+    if(maxB !== maxA) return maxB-maxA;
+    return (b.w*b.h)-(a.w*a.h);
+  });
+
+  const slabs = [];
+
+  function newSlab(){
+    return {shelves: [], placements: []};
+  }
+
+  function tryPlaceOnSlab(slab, item){
+    const orientations = rotate ? [[item.w,item.h],[item.h,item.w]] : [[item.w,item.h]];
+    for(const shelf of slab.shelves){
+      for(const [w,h] of orientations){
+        if(h <= shelf.h + 0.0001 && (shelf.usedW + gap + w) <= slabW + 0.0001){
+          const x = shelf.usedW === 0 ? 0 : shelf.usedW + gap;
+          const y = shelf.y;
+          slab.placements.push({x,y,w,h,item});
+          shelf.usedW = x + w;
+          return true;
+        }
+      }
+    }
+    const currentY = slab.shelves.length ? slab.shelves[slab.shelves.length-1].y + slab.shelves[slab.shelves.length-1].h + gap : 0;
+    for(const [w,h] of orientations){
+      if(currentY + h <= slabH + 0.0001 && w <= slabW + 0.0001){
+        slab.shelves.push({y: currentY, h: h, usedW: w});
+        slab.placements.push({x:0, y: currentY, w, h, item});
+        return true;
+      }
+    }
+    return false;
+  }
+
+  for(const item of items){
+    let placed = false;
+    for(const slab of slabs){
+      if(tryPlaceOnSlab(slab, item)){ placed = true; break; }
+    }
+    if(!placed){
+      const slab = newSlab();
+      if(tryPlaceOnSlab(slab, item)){
+        slabs.push(slab);
+        placed = true;
+      } else {
+        slab.oversized = slab.oversized || [];
+        slab.oversized.push(item);
+        slabs.push(slab);
+        placed = true;
+      }
+    }
+  }
+  return slabs;
+}
+
+function runCalc(){
+  const slabLen = parseFloat(document.getElementById('slabLen').value);
+  const slabWid = parseFloat(document.getElementById('slabWid').value);
+  const edgeTrim = parseFloat(document.getElementById('edgeTrim').value) || 0;
+  const kerf = parseFloat(document.getElementById('kerf').value) || 0;
+  const rotate = document.getElementById('allowRotate').checked;
+
+  const usableW = slabLen - edgeTrim*2;
+  const usableH = slabWid - edgeTrim*2;
+
+  const jobHeaderEl = document.getElementById('jobHeader');
+  const jobName = document.getElementById('jobName').value.trim();
+  const jobDateRaw = document.getElementById('jobDate').value;
+  let jobDateDisplay = '';
+  if(jobDateRaw){
+    const [y,m,dd] = jobDateRaw.split('-');
+    jobDateDisplay = `${m}/${dd}/${y}`;
+  }
+  if(jobName || jobDateDisplay){
+    jobHeaderEl.innerHTML = `
+      ${jobName ? `<div class="job-name">${jobName}</div>` : ''}
+      ${jobDateDisplay ? `<div class="job-date">${jobDateDisplay}</div>` : ''}
+    `;
+  } else {
+    jobHeaderEl.innerHTML = '';
+  }
+
+  const pieces = readPieces();
+
+  if(pieces.length === 0){
+    allPieces = [];
+    numSlabsRendered = 0;
+    currentSlabDims = null;
+    renderAll();
+    return;
+  }
+
+  const slabs = packSlabs(pieces, usableW, usableH, kerf, rotate);
+  const realSlabs = slabs.filter(s => s.placements.length > 0);
+
+  allPieces = [];
+  realSlabs.forEach((slab, idx)=>{
+    slab.placements.forEach(p=>{
+      allPieces.push({name:p.item.name, qtyLabel:p.item.qtyLabel, w:p.w, h:p.h, x:p.x, y:p.y, slabIndex: idx});
+    });
+  });
+  slabs.forEach(s=>{
+    if(s.oversized){
+      s.oversized.forEach(o=>{
+        allPieces.push({name:o.name, qtyLabel:o.qtyLabel, w:o.w, h:o.h, x:0, y:0, slabIndex:null});
+      });
+    }
+  });
+
+  numSlabsRendered = realSlabs.length;
+  currentSlabDims = {slabLen, slabWid, edgeTrim, scale:4.2, usableW, usableH};
+
+  renderAll();
+}
+
+function setSlabPhoto(idx, dataURL){
+  slabPhotos[idx] = dataURL;
+  renderAll();
+}
+function removeSlabPhoto(idx){
+  delete slabPhotos[idx];
+  renderAll();
+}
+
+function startDrag(e, piece){
+  e.preventDefault();
+  if(!currentSlabDims) return;
+  const scale = currentSlabDims.scale;
+
+  const ghost = document.createElement('div');
+  ghost.className = 'drag-ghost';
+  const gw = Math.max(50, Math.min(piece.w*scale, 200));
+  const gh = Math.max(28, Math.min(piece.h*scale, 120));
+  ghost.style.width = gw+'px';
+  ghost.style.height = gh+'px';
+  ghost.textContent = piece.name + piece.qtyLabel;
+  document.body.appendChild(ghost);
+
+  function moveGhost(clientX, clientY){
+    ghost.style.left = (clientX - gw/2) + 'px';
+    ghost.style.top = (clientY - gh/2) + 'px';
+  }
+  moveGhost(e.clientX, e.clientY);
+
+  function onMove(ev){
+    moveGhost(ev.clientX, ev.clientY);
+  }
+
+  function onUp(ev){
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', onUp);
+
+    const dropEl = document.elementFromPoint(ev.clientX, ev.clientY);
+    ghost.remove();
+
+    const slabSvg = dropEl ? dropEl.closest('.slab-svg') : null;
+    const trayEl = dropEl ? dropEl.closest('.tray-area') : null;
+
+    if(slabSvg){
+      const idx = parseInt(slabSvg.getAttribute('data-slab-index'), 10);
+      const rect = slabSvg.getBoundingClientRect();
+      const svgW = currentSlabDims.slabLen*scale;
+      const correction = svgW/rect.width;
+      const localPxX = (ev.clientX-rect.left)*correction;
+      const localPxY = (ev.clientY-rect.top)*correction;
+      const offX = currentSlabDims.edgeTrim*scale;
+      const offY = currentSlabDims.edgeTrim*scale;
+      let inchesX = (localPxX-offX)/scale - piece.w/2;
+      let inchesY = (localPxY-offY)/scale - piece.h/2;
+      inchesX = Math.max(0, Math.min(currentSlabDims.usableW-piece.w, inchesX));
+      inchesY = Math.max(0, Math.min(currentSlabDims.usableH-piece.h, inchesY));
+      piece.slabIndex = idx;
+      piece.x = inchesX;
+      piece.y = inchesY;
+    } else if(trayEl){
+      piece.slabIndex = null;
+    }
+    // otherwise: dropped somewhere invalid, piece stays where it was
+
+    renderAll();
+  }
+
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+}
+
+function renderAll(){
+  const summaryEl = document.getElementById('summary');
+  const slabsEl = document.getElementById('slabs');
+  const trayEl = document.getElementById('unassignedTray');
+  summaryEl.innerHTML = '';
+  slabsEl.innerHTML = '';
+  trayEl.innerHTML = '';
+
+  if(!currentSlabDims || allPieces.length === 0){
+    slabsEl.innerHTML = `<div class="empty-note"><span class="eyebrow">Nothing to nest yet</span>Add at least one piece with a length and width, then hit Calculate.</div>`;
+    return;
+  }
+
+  const {slabLen, slabWid, edgeTrim, scale, usableW, usableH} = currentSlabDims;
+
+  const totalPieceSqFt = allPieces.reduce((sum,p)=> sum + (p.w*p.h)/144, 0);
+  const totalSlabSqFt = numSlabsRendered * (slabLen*slabWid)/144;
+  const yieldPct = totalSlabSqFt > 0 ? (totalPieceSqFt/totalSlabSqFt*100) : 0;
+  const unassignedCount = allPieces.filter(p=>p.slabIndex===null).length;
+
+  summaryEl.innerHTML = `
+    <div class="stat accent"><div class="num">${numSlabsRendered}</div><div class="lbl">Slabs needed</div></div>
+    <div class="stat"><div class="num">${totalPieceSqFt.toFixed(1)}</div><div class="lbl">Sq ft of pieces</div></div>
+    <div class="stat"><div class="num">${totalSlabSqFt.toFixed(1)}</div><div class="lbl">Sq ft of slab</div></div>
+    <div class="stat ${yieldPct>=75?'good':'warn'}"><div class="num">${yieldPct.toFixed(0)}%</div><div class="lbl">Yield</div></div>
+    ${unassignedCount>0 ? `<div class="stat warn"><div class="num">${unassignedCount}</div><div class="lbl">Unplaced piece${unassignedCount!==1?'s':''}</div></div>` : ''}
+  `;
+
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const palette = ['#c08552','#5b7c8d','#8a9a6f','#b06a5a','#7d6a9e','#a68a4a'];
+
+  for(let idx=0; idx<numSlabsRendered; idx++){
+    const slabPieces = allPieces.filter(p=>p.slabIndex===idx);
+    const usedArea = slabPieces.reduce((sum,p)=> sum+p.w*p.h, 0);
+    const slabArea = usableW*usableH;
+    const slabYield = slabArea>0 ? (usedArea/slabArea*100) : 0;
+
+    const block = document.createElement('div');
+    block.className = 'slab-block';
+
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'slab-title';
+    titleDiv.innerHTML = `Slab ${idx+1} <span class="yield-tag">${slabYield.toFixed(0)}% used · ${slabPieces.length} piece${slabPieces.length!==1?'s':''}</span>`;
+
+    const photoLabel = document.createElement('label');
+    photoLabel.className = 'photo-upload-btn';
+    photoLabel.textContent = slabPhotos[idx] ? '🔄 Replace photo' : '📷 Upload slab photo';
+    const photoInput = document.createElement('input');
+    photoInput.type = 'file';
+    photoInput.accept = 'image/*';
+    photoInput.style.display = 'none';
+    photoInput.addEventListener('change', ()=>{
+      const file = photoInput.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = (e)=> setSlabPhoto(idx, e.target.result);
+      reader.readAsDataURL(file);
+    });
+    photoLabel.appendChild(photoInput);
+    titleDiv.appendChild(photoLabel);
+
+    if(slabPhotos[idx]){
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-photo-btn';
+      removeBtn.textContent = '✕';
+      removeBtn.title = 'Remove photo';
+      removeBtn.onclick = ()=> removeSlabPhoto(idx);
+      titleDiv.appendChild(removeBtn);
+    }
+    block.appendChild(titleDiv);
+
+    const svgW = slabLen*scale;
+    const svgH = slabWid*scale;
+    const offX = edgeTrim*scale;
+    const offY = edgeTrim*scale;
+
+    const svg = document.createElementNS(svgNS,'svg');
+    svg.setAttribute('class','slab-svg');
+    svg.setAttribute('data-slab-index', idx);
+    svg.setAttribute('width', svgW);
+    svg.setAttribute('height', svgH);
+    svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+
+    const bgRect = document.createElementNS(svgNS,'rect');
+    bgRect.setAttribute('x',0); bgRect.setAttribute('y',0);
+    bgRect.setAttribute('width',svgW); bgRect.setAttribute('height',svgH);
+    bgRect.setAttribute('fill','var(--slab)');
+    svg.appendChild(bgRect);
+
+    if(slabPhotos[idx]){
+      const img = document.createElementNS(svgNS,'image');
+      img.setAttribute('x',0); img.setAttribute('y',0);
+      img.setAttribute('width', svgW); img.setAttribute('height', svgH);
+      img.setAttribute('preserveAspectRatio','none');
+      img.setAttributeNS('http://www.w3.org/1999/xlink','href', slabPhotos[idx]);
+      img.setAttribute('href', slabPhotos[idx]);
+      svg.appendChild(img);
+    }
+
+    const usableRect = document.createElementNS(svgNS,'rect');
+    usableRect.setAttribute('x',offX); usableRect.setAttribute('y',offY);
+    usableRect.setAttribute('width', usableW*scale); usableRect.setAttribute('height', usableH*scale);
+    usableRect.setAttribute('fill','none');
+    usableRect.setAttribute('stroke','var(--slab-vein)');
+    usableRect.setAttribute('stroke-width','1');
+    usableRect.setAttribute('stroke-dasharray','4 3');
+    svg.appendChild(usableRect);
+
+    slabPieces.forEach((p, i)=>{
+      const color = palette[i % palette.length];
+      const label = p.name + p.qtyLabel;
+      const x = offX + p.x*scale;
+      const y = offY + p.y*scale;
+      const w = p.w*scale;
+      const h = p.h*scale;
+
+      const g = document.createElementNS(svgNS,'g');
+      g.setAttribute('class','piece-group');
+      g.style.cursor = 'grab';
+
+      const rect = document.createElementNS(svgNS,'rect');
+      rect.setAttribute('x', x); rect.setAttribute('y', y);
+      rect.setAttribute('width', w); rect.setAttribute('height', h);
+      rect.setAttribute('fill', color);
+      rect.setAttribute('fill-opacity', slabPhotos[idx] ? '0.4' : '0.85');
+      rect.setAttribute('stroke','#1b1c1e');
+      rect.setAttribute('stroke-width','1');
+
+      const text1 = document.createElementNS(svgNS,'text');
+      text1.setAttribute('x', x + w/2); text1.setAttribute('y', y + h/2 - 6);
+      text1.setAttribute('text-anchor','middle');
+      text1.setAttribute('font-size','11');
+      text1.setAttribute('font-family','-apple-system,Helvetica,Arial,sans-serif');
+      text1.setAttribute('fill','#1b1c1e');
+      text1.setAttribute('font-weight','600');
+      text1.textContent = label;
+
+      const text2 = document.createElementNS(svgNS,'text');
+      text2.setAttribute('x', x + w/2); text2.setAttribute('y', y + h/2 + 9);
+      text2.setAttribute('text-anchor','middle');
+      text2.setAttribute('font-size','10.5');
+      text2.setAttribute('font-family','SF Mono, Menlo, Consolas, monospace');
+      text2.setAttribute('fill','#1b1c1e');
+      text2.textContent = `${p.w}" × ${p.h}"`;
+
+      g.appendChild(rect);
+      g.appendChild(text1);
+      g.appendChild(text2);
+      svg.appendChild(g);
+
+      g.addEventListener('pointerdown', (e)=> startDrag(e, p));
+    });
+
+    block.appendChild(svg);
+    slabsEl.appendChild(block);
+  }
+
+  const unassignedPieces = allPieces.filter(p=>p.slabIndex===null);
+  if(unassignedPieces.length === 0){
+    trayEl.innerHTML = `<div class="tray-empty">Drop pieces here to pull them off a slab</div>`;
+  } else {
+    unassignedPieces.forEach(p=>{
+      const card = document.createElement('div');
+      card.className = 'tray-card';
+      card.innerHTML = `<div class="tray-card-name">${p.name}${p.qtyLabel}</div><div class="tray-card-dims">${p.w}" × ${p.h}"</div>`;
+      card.addEventListener('pointerdown', (e)=> startDrag(e, p));
+      trayEl.appendChild(card);
+    });
+  }
+}
+
+// run once on load with the seeded example
+runCalc();
+</script>
+
+</body>
+</html>
